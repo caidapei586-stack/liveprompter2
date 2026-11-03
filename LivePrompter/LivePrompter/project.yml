@@ -1,0 +1,26 @@
+name: LivePrompter
+options:
+  bundleIdPrefix: com.example.LivePrompter
+  deploymentTarget:
+    iOS: "15.0"
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: com.example.LivePrompter
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""        # 填入你的 Apple Developer Team ID
+    SWIFT_VERSION: "5.0"
+    ENABLE_BITCODE: "NO"
+    INFOPLIST_KEY_UILaunchScreenName: LaunchScreen
+targets:
+  LivePrompter:
+    type: application
+    platform: iOS
+    sources:
+      - path: LivePrompter
+    info:
+      properties:
+        NSMicrophoneUsageDescription: "直播提词需要麦克风权限，用于识别你的语速，实现台词随语速自动滚动。"
+        NSSpeechRecognitionUsageDescription: "需要语音识别权限，将你说出的内容与台词匹配，实现智能跟读。"
+        UIBackgroundModes:
+          - audio
+        UILaunchScreen: {}
