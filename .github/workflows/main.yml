@@ -18,33 +18,49 @@ jobs:
           ZIP_FILE=$(find . -maxdepth 3 -name "*.zip" | head -n 1)
           if [ -n "$ZIP_FILE" ]; then
             echo "解压 $ZIP_FILE"
-            unzip -o "$ZIP_FILE"
+            unzip -oq "$ZIP_FILE"
           fi
 
-      - name: 3. 定位工程根目录（含 project.yml 的那一层）
+      - name: 3. 自动定位源码根目录
         run: |
+          set -e
           APP_FILE=$(find . -name "LivePrompterApp.swift" | head -n 1)
           if [ -z "$APP_FILE" ]; then
             echo "未找到 LivePrompterApp.swift，请确认源码已完整上传"
             exit 1
           fi
-          PROJECT_DIR=$(dirname "$(dirname "$(dirname "$APP_FILE")")")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "工程目录内容："
-          ls "$PROJECT_DIR"
+          APP_DIR=$(dirname "$APP_FILE")
+          BASE=$(basename "$APP_DIR")
+          if [ "$BASE" = "App" ]; then
+            SOURCE_ROOT=$(dirname "$APP_DIR")
+          else
+            SOURCE_ROOT="$APP_DIR"
+          fi
+          SOURCE_ROOT=$(cd "$SOURCE_ROOT" && pwd)
+          echo "SOURCE_ROOT=$SOURCE_ROOT" >> "$GITHUB_ENV"
+          echo "源码根目录：$SOURCE_ROOT"
+          echo "目录内容："
+          ls "$SOURCE_ROOT"
 
-      - name: 4. 安装 XcodeGen（用仓库自带的 project.yml，不做任何覆盖）
+      - name: 4. 写入自动生成的 project.yml（自动适配目录结构）
+        run: |
+          set -e
+          python3 -c "import base64,sys; sys.stdout.buffer.write(base64.b64decode('bmFtZTogTGl2ZVByb21wdGVyCm9wdGlvbnM6CiAgYnVuZGxlSWRQcmVmaXg6IGNvbS5leGFtcGxlCiAgZGVwbG95bWVudFRhcmdldDoKICAgIGlPUzogIjE1LjAiCnRhcmdldHM6CiAgTGl2ZVByb21wdGVyOgogICAgdHlwZTogYXBwbGljYXRpb24KICAgIHBsYXRmb3JtOiBpT1MKICAgIHNvdXJjZXM6CiAgICAgIC0gcGF0aDogIi4iCiAgICAgICAgZXhjbHVkZXM6CiAgICAgICAgICAtIHByb2plY3QueW1sCiAgICAgICAgICAtICIqLm1kIgogICAgICAgICAgLSBidWlsZAogICAgICAgICAgLSBQYXlsb2FkCiAgICAgICAgICAtICIqLmlwYSIKICAgICAgICAgIC0gIiouemlwIgogICAgICAgICAgLSBJbmZvLnBsaXN0CiAgICAgICAgICAtICIuZ2l0aHViIgogICAgICAgICAgLSAiLmdpdCIKICAgICAgICAgIC0gIi5EU19TdG9yZSIKICAgIGluZm86CiAgICAgIHBhdGg6IEluZm8ucGxpc3QKICAgICAgcHJvcGVydGllczoKICAgICAgICBDRkJ1bmRsZURpc3BsYXlOYW1lOiDmtYHlhYnmj5Dor43lmagKICAgICAgICBDRkJ1bmRsZVNob3J0VmVyc2lvblN0cmluZzogIjEuMC4wIgogICAgICAgIENGQnVuZGxlVmVyc2lvbjogIjEiCiAgICAgICAgTlNNaWNyb3Bob25lVXNhZ2VEZXNjcmlwdGlvbjogIuebtOaSreaPkOivjemcgOimgem6puWFi+mjjuadg+mZkO+8jOeUqOS6juivhuWIq+S9oOeahOivremAn++8jOWunueOsOWPsOivjemaj+ivremAn+iHquWKqOa7muWKqOOAgiIKICAgICAgICBOU1NwZWVjaFJlY29nbml0aW9uVXNhZ2VEZXNjcmlwdGlvbjogIumcgOimgeivremfs+ivhuWIq+adg+mZkO+8jOWwhuS9oOivtOWHuueahOWGheWuueS4juWPsOivjeWMuemFje+8jOWunueOsOaZuuiDvei3n+ivu+OAgiIKICAgICAgICBVSUJhY2tncm91bmRNb2RlczoKICAgICAgICAgIC0gYXVkaW8KICAgICAgICBVSUxhdW5jaFNjcmVlbjoge30KICAgICAgICBVSVN1cHBvcnRlZEludGVyZmFjZU9yaWVudGF0aW9uczoKICAgICAgICAgIC0gVUlJbnRlcmZhY2VPcmllbnRhdGlvblBvcnRyYWl0CiAgICAgICAgICAtIFVJSW50ZXJmYWNlT3JpZW50YXRpb25MYW5kc2NhcGVMZWZ0CiAgICAgICAgICAtIFVJSW50ZXJmYWNlT3JpZW50YXRpb25MYW5kc2NhcGVSaWdodAogICAgc2V0dGluZ3M6CiAgICAgIGJhc2U6CiAgICAgICAgU1dJRlRfVkVSU0lPTjogIjUuMCIKICAgICAgICBQUk9EVUNUX0JVTkRMRV9JREVOVElGSUVSOiBjb20uZXhhbXBsZS5MaXZlUHJvbXB0ZXIKICAgICAgICBNQVJLRVRJTkdfVkVSU0lPTjogIjEuMC4wIgogICAgICAgIENVUlJFTlRfUFJPSkVDVF9WRVJTSU9OOiAiMSIKICAgICAgICBDT0RFX1NJR05fU1RZTEU6IEF1dG9tYXRpYwogICAgICAgIERFVkVMT1BNRU5UX1RFQU06ICIiCiAgICAgICAgVEFSR0VURURfREVWSUNFX0ZBTUlMWTogIjEsMiIKICAgICAgICBFTkFCTEVfQklUQ09ERTogIk5PIgo='))" > "$SOURCE_ROOT/project.yml"
+          echo "已写入 project.yml 到 $SOURCE_ROOT"
+          cat "$SOURCE_ROOT/project.yml"
+
+      - name: 5. 安装 XcodeGen
         run: |
           if ! command -v xcodegen &> /dev/null; then
             brew install xcodegen
           fi
 
-      - name: 5. 生成 Xcode 工程
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: 6. 生成 Xcode 工程
+        working-directory: ${{ env.SOURCE_ROOT }}
         run: xcodegen generate
 
-      - name: 6. 编译（不签名，交给 Sideloadly 后续签名）
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: 7. 编译（不签名，交给 Sideloadly 后续签名）
+        working-directory: ${{ env.SOURCE_ROOT }}
         run: |
           xcodebuild build \
             -project LivePrompter.xcodeproj \
@@ -57,9 +73,10 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM=""
 
-      - name: 7. 打包成标准 .ipa
-        working-directory: ${{ env.PROJECT_DIR }}
+      - name: 8. 打包成标准 .ipa
+        working-directory: ${{ env.SOURCE_ROOT }}
         run: |
+          set -e
           mkdir -p Payload
           APP_PATH=$(find build -name "LivePrompter.app" -type d | head -n 1)
           if [ -z "$APP_PATH" ]; then
@@ -69,8 +86,8 @@ jobs:
           cp -r "$APP_PATH" Payload/
           zip -r -q LivePrompter.ipa Payload
 
-      - name: 8. 上传 IPA 供下载
+      - name: 9. 上传 IPA 供下载
         uses: actions/upload-artifact@v4
         with:
           name: LivePrompter-iOS-IPA
-          path: ${{ env.PROJECT_DIR }}/LivePrompter.ipa
+          path: ${{ env.SOURCE_ROOT }}/LivePrompter.ipa
