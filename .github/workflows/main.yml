@@ -1,0 +1,76 @@
+name: Build iOS IPA (Unsigned)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build-ipa:
+    runs-on: macos-14
+
+    steps:
+      - name: 1. 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 2. 若仓库里带的是 zip 则自动解压
+        run: |
+          ZIP_FILE=$(find . -maxdepth 3 -name "*.zip" | head -n 1)
+          if [ -n "$ZIP_FILE" ]; then
+            echo "解压 $ZIP_FILE"
+            unzip -o "$ZIP_FILE"
+          fi
+
+      - name: 3. 定位工程根目录（含 project.yml 的那一层）
+        run: |
+          APP_FILE=$(find . -name "LivePrompterApp.swift" | head -n 1)
+          if [ -z "$APP_FILE" ]; then
+            echo "未找到 LivePrompterApp.swift，请确认源码已完整上传"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$(dirname "$(dirname "$APP_FILE")")")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "工程目录内容："
+          ls "$PROJECT_DIR"
+
+      - name: 4. 安装 XcodeGen（用仓库自带的 project.yml，不做任何覆盖）
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+
+      - name: 5. 生成 Xcode 工程
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: xcodegen generate
+
+      - name: 6. 编译（不签名，交给 Sideloadly 后续签名）
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          xcodebuild build \
+            -project LivePrompter.xcodeproj \
+            -scheme LivePrompter \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=""
+
+      - name: 7. 打包成标准 .ipa
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          mkdir -p Payload
+          APP_PATH=$(find build -name "LivePrompter.app" -type d | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "未找到 LivePrompter.app，编译可能失败"
+            exit 1
+          fi
+          cp -r "$APP_PATH" Payload/
+          zip -r -q LivePrompter.ipa Payload
+
+      - name: 8. 上传 IPA 供下载
+        uses: actions/upload-artifact@v4
+        with:
+          name: LivePrompter-iOS-IPA
+          path: ${{ env.PROJECT_DIR }}/LivePrompter.ipa
